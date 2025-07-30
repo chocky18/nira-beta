@@ -1,0 +1,48 @@
+.feature-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 1px solid #e5e5e5;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  color: #262626;
+  font-size: 14px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.feature-button:hover {
+  background-color: #ebebeb;
+  border-color: #d4d4d4;
+}
+
+.feature-button:focus {
+  outline: none;
+  ring: 2px solid #262626;
+  ring-offset: 2px;
+}
+
+.feature-button:disabled {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+@media (prefers-color-scheme: dark) {
+  .feature-button {
+    background-color: #1a1a1a;
+    border-color: #333333;
+    color: #f5f5f5;
+  }
+  
+  .feature-button:hover {
+    background-color: #262626;
+    border-color: #404040;
+  }
+  
+  .feature-button:focus {
+    ring-color: #f5f5f5;
+  }
+}
