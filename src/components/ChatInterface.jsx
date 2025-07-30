@@ -1,201 +1,204 @@
-import { useState } from "react";
-import { ChatMessage } from "./ChatMessage";
-import { FeatureButton } from "./FeatureButton";
-import { GrokIcon } from "./GrokIcon";
-import { Send, Zap, ImagePlus, Search, Edit, Newspaper, Users } from "lucide-react";
-import './ChatInterface.css';
+import React, { useState, useEffect, useRef } from "react";
+import axios from "axios";
+import { FaPaperclip, FaArrowUp, FaRedo } from "react-icons/fa";
+import "./ChatInterface.css";
 
-export const ChatInterface = () => {
-  const [messages, setMessages] = useState([]);
-  const [inputValue, setInputValue] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+const ChatInterface = () => {
+  const [stage, setStage] = useState("quiz"); // quiz | chat
+  const [quizQuestion, setQuizQuestion] = useState("");
+  const [quizOptions, setQuizOptions] = useState([]);
+  const [quizAnswer, setQuizAnswer] = useState("");
+  const [quizImages, setQuizImages] = useState([]);
+  const [message, setMessage] = useState("");
+  const [image, setImage] = useState(null);
+  const [previewURL, setPreviewURL] = useState(null);
+  const [chat, setChat] = useState([]);
+  const [metrics, setMetrics] = useState({});
+  const [response, setResponse] = useState("");
+  const [steps, setSteps] = useState([]);
+  const [userId, setUserId] = useState("u001");
 
-  const showToast = (title, description) => {
-    // Simple toast implementation
-    const toast = document.createElement('div');
-    toast.className = 'toast';
-    toast.innerHTML = `
-      <div class="toast-title">${title}</div>
-      <div class="toast-description">${description}</div>
-    `;
-    document.body.appendChild(toast);
-    
-    setTimeout(() => {
-      toast.classList.add('toast-show');
-    }, 100);
-    
-    setTimeout(() => {
-      toast.classList.remove('toast-show');
-      setTimeout(() => {
-        document.body.removeChild(toast);
-      }, 300);
-    }, 3000);
+  const responseRef = useRef(null);
+
+  useEffect(() => {
+    fetchQuiz();
+  }, []);
+
+  useEffect(() => {
+    if (responseRef.current) {
+      responseRef.current.scrollTop = responseRef.current.scrollHeight;
+    }
+  }, [chat, metrics, response]);
+
+  const resetAll = () => {
+    setStage("quiz");
+    setUserId("u" + Date.now());
+    setQuizQuestion("");
+    setQuizOptions([]);
+    setQuizAnswer("");
+    setQuizImages([]);
+    setMessage("");
+    setImage(null);
+    setPreviewURL(null);
+    setChat([]);
+    setMetrics({});
+    setResponse("");
+    setSteps([]);
+    fetchQuiz();
   };
 
-  const handleSendMessage = async () => {
-    if (!inputValue.trim()) return;
+  const fetchQuiz = async (answer = null) => {
+    try {
+      const formData = new FormData();
+      formData.append("user_id", userId);
+      if (answer) formData.append("message", answer);
 
-    const userMessage = {
-      id: Date.now().toString(),
-      content: inputValue.trim(),
-      isUser: true,
-      timestamp: new Date(),
-    };
+      const res = await axios.post("https://nira-ai-chat.duckdns.org/chat", formData);
 
-    setMessages(prev => [...prev, userMessage]);
-    setInputValue("");
-    setIsLoading(true);
-
-    // Simulate AI response
-    setTimeout(() => {
-      const aiMessage = {
-        id: (Date.now() + 1).toString(),
-        content: "I'm a demo chatbot inspired by Grok! I can help you with various tasks like answering questions, creating content, and more. What would you like to explore?",
-        isUser: false,
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, aiMessage]);
-      setIsLoading(false);
-    }, 1000);
-  };
-
-  const handleFeatureClick = (feature) => {
-    showToast(feature, `${feature} feature clicked! This is a demo interface.`);
-  };
-
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
+      if (res.data.quiz_completed) {
+        setStage("chat");
+        setResponse(res.data.response || "");
+        setMetrics(res.data.metrics || {});
+        setSteps(res.data.steps || []);
+        setQuizImages(res.data.images_from_quiz || []);
+      } else {
+        setQuizQuestion(res.data.current_question || res.data.response);
+        setQuizOptions(res.data.options || []);
+        setQuizImages(res.data.images_from_quiz || []);
+      }
+    } catch (error) {
+      console.error("Quiz error:", error);
     }
   };
 
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setImage(file);
+    const reader = new FileReader();
+    reader.onloadend = () => setPreviewURL(reader.result);
+    reader.readAsDataURL(file);
+  };
+
+  const sendMessage = async () => {
+    if (!message && !image) return;
+
+    setChat((prev) => [...prev, { sender: "user", text: message, image: previewURL }]);
+
+    const formData = new FormData();
+    formData.append("user_id", userId);
+    formData.append("message", message);
+    if (image) formData.append("image_file", image);
+
+    try {
+      const res = await axios.post("https://nira-ai-chat.duckdns.org/chat", formData);
+      setChat((prev) => [...prev, { sender: "ai", text: res.data.response }]);
+      setMetrics(res.data.metrics || {});
+      setSteps(res.data.steps || []);
+      setResponse(res.data.response || "");
+    } catch {
+      setChat((prev) => [...prev, { sender: "ai", text: "❌ Error connecting to backend." }]);
+    }
+
+    setMessage("");
+    setImage(null);
+    setPreviewURL(null);
+  };
+
   return (
-    <div className="chat-interface">
-      {/* Header */}
-      <header className="chat-header">
-        <div className="header-logo">
-          <GrokIcon />
-        </div>
-        <div className="header-buttons">
-          <button className="header-btn secondary">Sign up</button>
-          <button className="header-btn primary">Sign in</button>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <div className="chat-main">
-        {messages.length === 0 ? (
-          /* Welcome Screen */
-          <div className="welcome-screen">
-            <div className="welcome-header">
-              <GrokIcon className="large" />
-              <h1 className="welcome-title">Grok</h1>
-            </div>
-
-            <div className="welcome-content">
-              <div className="input-container">
+    <div className="chat-wrapper">
+      {stage === "quiz" ? (
+        <div className="quiz-card">
+          <h2>❓ {quizQuestion}</h2>
+          <div className="quiz-options">
+            {quizOptions.length > 0 ? (
+              quizOptions.map((opt, idx) => (
+                <button key={idx} className="pill-button" onClick={() => fetchQuiz(opt)}>
+                  {opt}
+                </button>
+              ))
+            ) : (
+              <>
                 <input
                   type="text"
-                  placeholder="What do you want to know?"
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  className="main-input"
+                  value={quizAnswer}
+                  placeholder="Your answer..."
+                  onChange={(e) => setQuizAnswer(e.target.value)}
                 />
-                <button
-                  onClick={handleSendMessage}
-                  disabled={!inputValue.trim() || isLoading}
-                  className="send-button"
-                >
-                  <Send size={16} />
-                </button>
-              </div>
-
-              {/* Feature Buttons */}
-              <div className="feature-buttons">
-                <FeatureButton
-                  icon={Zap}
-                  label="Fast"
-                  onClick={() => handleFeatureClick("Fast")}
-                />
-                <FeatureButton
-                  icon={ImagePlus}
-                  label="Create Images"
-                  onClick={() => handleFeatureClick("Create Images")}
-                />
-                <FeatureButton
-                  icon={Search}
-                  label="Research"
-                  onClick={() => handleFeatureClick("Research")}
-                />
-                <FeatureButton
-                  icon={Edit}
-                  label="Edit Image"
-                  onClick={() => handleFeatureClick("Edit Image")}
-                />
-                <FeatureButton
-                  icon={Newspaper}
-                  label="Latest News"
-                  onClick={() => handleFeatureClick("Latest News")}
-                />
-                <FeatureButton
-                  icon={Users}
-                  label="Personas"
-                  onClick={() => handleFeatureClick("Personas")}
-                />
-              </div>
-            </div>
-
-            <p className="welcome-footer">
-              By messaging Grok, you agree to our{" "}
-              <span className="link">Terms</span> and{" "}
-              <span className="link">Privacy Policy</span>.
-            </p>
+                <button onClick={() => fetchQuiz(quizAnswer)}>Submit</button>
+              </>
+            )}
           </div>
-        ) : (
-          /* Chat Messages */
-          <div className="chat-container">
-            <div className="messages-container">
-              {messages.map((message) => (
-                <ChatMessage
-                  key={message.id}
-                  message={message.content}
-                  isUser={message.isUser}
-                  timestamp={message.timestamp}
-                />
-              ))}
-              {isLoading && (
-                <div className="loading-message">
-                  <GrokIcon className="loading-icon" />
-                  <div className="loading-text">Thinking...</div>
+        </div>
+      ) : (
+        <div className="chat-layout">
+          {/* LEFT - Conversation */}
+          <div className="chat-left">
+            <div className="chat-header">
+              ⚡ NIRA AI <button onClick={resetAll}><FaRedo /> Reset</button>
+            </div>
+            <div className="chat-area" ref={responseRef}>
+              {chat.map((msg, idx) => (
+                <div key={idx} className={`chat-bubble ${msg.sender}`}>
+                  {msg.text}
+                  {msg.image && <img src={msg.image} alt="" />}
                 </div>
-              )}
+              ))}
             </div>
-
-            {/* Chat Input */}
-            <div className="chat-input-container">
-              <div className="chat-input-wrapper">
-                <input
-                  type="text"
-                  placeholder="Ask Grok anything..."
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  className="chat-input"
-                />
-                <button
-                  onClick={handleSendMessage}
-                  disabled={!inputValue.trim() || isLoading}
-                  className="send-button small"
-                >
-                  <Send size={16} />
-                </button>
-              </div>
+            <div className="input-bar">
+              <label>
+                <FaPaperclip />
+                <input type="file" hidden onChange={handleImageUpload} />
+              </label>
+              <input
+                type="text"
+                placeholder="Type a message..."
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+              />
+              <button onClick={sendMessage}><FaArrowUp /></button>
             </div>
           </div>
-        )}
-      </div>
+
+          {/* RIGHT - Analytics */}
+          <div className="chat-right">
+            {response && (
+              <div className="chat-section">
+                <h3>✅ Response</h3>
+                <p>{response}</p>
+              </div>
+            )}
+            {metrics && Object.keys(metrics).length > 0 && (
+              <div className="chat-section">
+                <h3>🧪 Metrics</h3>
+                {Object.entries(metrics).map(([region, regionMetrics]) => (
+                  <div key={region}>
+                    <h4>{region}</h4>
+                    <ul>
+                      {Object.entries(regionMetrics).map(([metric, value]) => {
+                        if (typeof value === "object" && "severity" in value) {
+                          return (
+                            <li key={metric}>
+                              {metric}:{" "}
+                              <span className={`badge ${value.severity}`}>
+                                {value.severity}
+                              </span>
+                            </li>
+                          );
+                        } else {
+                          return <li key={metric}>{metric}: {value}</li>;
+                        }
+                      })}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
+export default ChatInterface;
