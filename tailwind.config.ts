@@ -52,6 +52,12 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
+				grok: {
+					icon: 'hsl(var(--grok-icon))',
+					hover: 'hsl(var(--grok-hover))',
+					'feature-bg': 'hsl(var(--grok-feature-bg))',
+					'feature-border': 'hsl(var(--grok-feature-border))',
+				},
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
 					foreground: 'hsl(var(--sidebar-foreground))',
